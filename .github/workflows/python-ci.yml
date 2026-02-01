@@ -132,7 +132,7 @@ jobs:
       - name: Upload revision to S3
         run: |
           set -euo pipefail
-          S3_KEY="codedeploy/dev/ai/${{ github.ref_name }}/revision-${{ github.sha }}.zip"
+          S3_KEY="codedeploy/dev/ai/revision-${{ github.sha }}.zip"
           aws s3 cp revision.zip "s3://${{ env.DEPLOY_BUCKET }}/$S3_KEY"
           echo "S3_KEY=$S3_KEY" >> $GITHUB_ENV
 
@@ -147,10 +147,61 @@ jobs:
             DG="dev-damo-ai"
           fi
 
-          aws deploy create-deployment \
-            --application-name ${{ env.CODEDEPLOY_APP_NAME }} \
+          # create-deployment는 "요청"만 보내고 즉시 끝나므로,
+          # deploymentId를 받아서 다음 스텝에서 실제 배포 완료를 기다리게 한다.
+          DEPLOYMENT_ID="$(aws deploy create-deployment \
+            --application-name "${{ env.CODEDEPLOY_APP_NAME }}" \
             --deployment-group-name "$DG" \
-            --s3-location bucket="${{ env.DEPLOY_BUCKET }}",key="$S3_KEY",bundleType=zip
+            --s3-location bucket="${{ env.DEPLOY_BUCKET }}",key="$S3_KEY",bundleType=zip \
+            --query 'deploymentId' --output text)"
+
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> $GITHUB_ENV
+          echo "Created deployment: $DEPLOYMENT_ID"
+
+      - name: Wait for CodeDeploy deployment to succeed
+        run: |
+          set -euo pipefail
+
+          # 최대 대기 시간(초)
+          TIMEOUT_SECONDS=120
+          INTERVAL_SECONDS=10
+
+          start_ts="$(date +%s)"
+
+          while true; do
+            status="$(aws deploy get-deployment \
+              --deployment-id "$DEPLOYMENT_ID" \
+              --query 'deploymentInfo.status' \
+              --output text)"
+
+            echo "CodeDeploy status: $status"
+
+            case "$status" in
+              Succeeded)
+                echo "CodeDeploy deployment succeeded: $DEPLOYMENT_ID"
+                exit 0
+                ;;
+              Failed|Stopped)
+                # 실패 원인 메시지
+                err_msg="$(aws deploy get-deployment \
+                  --deployment-id "$DEPLOYMENT_ID" \
+                  --query 'deploymentInfo.errorInformation.message' \
+                  --output text || true)"
+                echo "CodeDeploy deployment $status: $DEPLOYMENT_ID"
+                echo "Error message: ${err_msg:-N/A}"
+                exit 1
+                ;;
+              *)
+                now_ts="$(date +%s)"
+                elapsed="$((now_ts - start_ts))"
+                if [ "$elapsed" -ge "$TIMEOUT_SECONDS" ]; then
+                  echo "Timeout waiting for CodeDeploy. deploymentId=$DEPLOYMENT_ID, lastStatus=$status"
+                  exit 1
+                fi
+                sleep "$INTERVAL_SECONDS"
+                ;;
+            esac
+          done
 
 
   notify:
