@@ -68,23 +68,8 @@ jobs:
         set -euo pipefail
 
         rm -f "${{ env.ARTIFACT_FILE }}"
-        rm -f .env
-
-        # .env 생성
-        install -m 600 /dev/null .env
-        cat > .env <<EOF
-        GOOGLE_API_KEY=${{ env.GOOGLE_API_KEY }}
-        MONGODB_URI=${{ env.MONGODB_URI }}
-        DB_NAME=${{ env.DB_NAME }}
-        OPENAI_API_KEY=${{ env.OPENAI_API_KEY }}
-        LANGFUSE_SECRET_KEY=${{ env.LANGFUSE_SECRET_KEY }}
-        LANGFUSE_PUBLIC_KEY=${{ env.LANGFUSE_PUBLIC_KEY }}
-        LANGFUSE_BASE_URL=${{ env.LANGFUSE_BASE_URL }}
-        EOF
-
-        umask 022
+        
         tar -czf "${{ env.ARTIFACT_FILE }}" \
-          .env \
           ecosystem.ai.config.js \
           src \
           main.py \
@@ -93,9 +78,6 @@ jobs:
           run.dev.sh \
           run.test.sh \
           pyproject.toml
-
-        chmod 644 ai-app.tar.gz
-        rm -f .env
 
     - name: Build CodeDeploy revision (zip)
       if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
@@ -165,7 +147,6 @@ jobs:
             DG="dev-damo-ai"
           fi
 
-          # 위에서 만든 S3_KEY는 job env로 들어오므로 그대로 사용
           aws deploy create-deployment \
             --application-name ${{ env.CODEDEPLOY_APP_NAME }} \
             --deployment-group-name "$DG" \
