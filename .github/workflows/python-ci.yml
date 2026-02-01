@@ -24,6 +24,7 @@ env:
 
   AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
   DEPLOY_BUCKET: ${{ secrets.DEPLOY_BUCKET }}
+  CODEDEPLOY_APP_NAME: damo-ai
 
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
   MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -32,6 +33,7 @@ env:
   LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
   LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
   LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -158,14 +160,14 @@ jobs:
 
           # 브랜치에 따라 배포그룹 분기
           if [ "${{ github.ref_name }}" = "main" ]; then
-            DG="damo-prod"
+            DG="prod-damo-ai"
           else
-            DG="damo-dev"
+            DG="dev-damo-ai"
           fi
 
           # 위에서 만든 S3_KEY는 job env로 들어오므로 그대로 사용
           aws deploy create-deployment \
-            --application-name "damo" \
+            --application-name ${{ env.CODEDEPLOY_APP_NAME }} \
             --deployment-group-name "$DG" \
             --s3-location bucket="${{ env.DEPLOY_BUCKET }}",key="$S3_KEY",bundleType=zip
 
