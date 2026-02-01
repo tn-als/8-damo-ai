@@ -1,0 +1,17 @@
+version: 0.0
+os: linux
+
+files:
+  - source: ai-app.tar.gz
+    destination: /home/ubuntu/opt/ai-prod/incoming
+    overwrite: true
+
+hooks:
+  AfterInstall:
+    - location: cd-hooks/after_install.sh
+      timeout: 900
+      runas: ubuntu
+  ValidateService:
+    - location: cd-hooks/validate.sh
+      timeout: 120
+      runas: ubuntu

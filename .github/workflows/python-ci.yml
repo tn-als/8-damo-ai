@@ -18,14 +18,8 @@ env:
   ARTIFACT_FILE: ai-app.tar.gz
   DEPLOY_SCRIPT: scripts/deploy_bigbang.sh
 
-  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
-  MONGODB_URI: ${{ secrets.MONGODB_URI }}
-  DB_NAME: ${{ secrets.DB_NAME }}
-
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
-  LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
-  LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+  AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+  DEPLOY_BUCKET: ${{ secrets.DEPLOY_BUCKET }}
 
 jobs:
   ci:
@@ -90,18 +84,36 @@ jobs:
         chmod 644 ai-app.tar.gz
         rm -f .env
 
-
-    - name: Upload bundle to server (SCP)
+    - name: Build CodeDeploy revision (zip)
       if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
-      uses: appleboy/scp-action@v0.1.7
+      run: |
+        set -euo pipefail
+
+        rm -rf revision
+        mkdir -p revision/cd-hooks
+
+        cp codedeploy/appspec.yml revision/appspec.yml
+        cp "${{ env.ARTIFACT_FILE }}" revision/ai-app.tar.gz
+
+        cp codedeploy/cd-hooks/after_install.sh revision/cd-hooks/after_install.sh
+        chmod +x revision/cd-hooks/after_install.sh
+
+        if [ -f codedeploy/cd-hooks/validate.sh ]; then
+          cp codedeploy/cd-hooks/validate.sh revision/cd-hooks/validate.sh
+          chmod +x revision/cd-hooks/validate.sh
+        fi
+
+        (cd revision && zip -r ../revision.zip .)
+
+    # CodeDeploy용 revision.zip을 job 간 전달하기 위한 artifact 업로드
+    - name: Upload revision artifact
+      if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
+      uses: actions/upload-artifact@v4
       with:
-        host: ${{ env.HOST }}
-        username: ${{ env.USER }}
-        port: ${{ env.PORT }}
-        key: ${{ env.KEY }}
-        source: ${{ env.ARTIFACT_FILE }}
-        target: ${{ env.INCOMING_DIR }}/
-        overwrite: true
+        name: revision-zip
+        path: revision.zip
+        retention-days: 3
+
 
   deploy:
     needs: ci
@@ -109,53 +121,42 @@ jobs:
     if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main') && needs.ci.result == 'success'
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH (run deploy_bigbang.sh)
-        uses: appleboy/ssh-action@v1.0.3
+      # ci job에서 만든 revision.zip 받아오기
+      - name: Download revision artifact
+        uses: actions/download-artifact@v4
         with:
-          host: ${{ env.HOST }}
-          username: ${{ env.USER }}
-          port: ${{ env.PORT }}
-          key: ${{ env.KEY }}
-          script_stop: true
-          script: |
-            set -euo pipefail
+          name: revision-zip
+          path: .
 
-            mkdir -p "${{ env.INCOMING_DIR }}"
-            mkdir -p "${{ env.REMOTE_DIR }}/app"
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
 
-            ART="${{ env.INCOMING_DIR }}/${{ env.ARTIFACT_FILE }}"
-            APP_DIR="${{ env.REMOTE_DIR }}/app"
+      - name: Upload revision to S3
+        run: |
+          set -euo pipefail
+          S3_KEY="codedeploy/dev/ai/${{ github.ref_name }}/revision-${{ github.sha }}.zip"
+          aws s3 cp revision.zip "s3://${{ env.DEPLOY_BUCKET }}/$S3_KEY"
+          echo "S3_KEY=$S3_KEY" >> $GITHUB_ENV
 
-            echo "Artifact: ${ART}"
-            echo "App dir: ${APP_DIR}"
+      - name: Create CodeDeploy deployment
+        run: |
+          set -euo pipefail
 
-            # 파일 존재 확인(원인 바로 보이게)
-            if [ ! -f "${ART}" ]; then
-              echo "ERROR: artifact not found: ${ART}"
-              ls -al "${{ env.INCOMING_DIR }}" || true
-              exit 1
-            fi
+          # 브랜치에 따라 배포그룹 분기
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            DG="damo-prod"
+          else
+            DG="damo-dev"
+          fi
 
-            # app/에 tar.gz 풀기
-            tar -xzf "${ART}" -C "${APP_DIR}"
-
-            # app/ 아래에 scripts 생겼는지 확인
-            SCRIPT="${{ env.REMOTE_DIR }}/${{ env.DEPLOY_SCRIPT }}"
-            echo "Script: ${SCRIPT}"
-
-            if [ ! -f "${SCRIPT}" ]; then
-              echo "ERROR: deploy script not found: ${SCRIPT}"
-              ls -al "${APP_DIR}" || true
-              echo "Listing scripts dir:"
-              ls -al "${APP_DIR}/scripts" || true
-              exit 1
-            fi
-
-            chmod +x "${SCRIPT}"
-            "${SCRIPT}" "${ART}"
+          # 위에서 만든 S3_KEY는 job env로 들어오므로 그대로 사용
+          aws deploy create-deployment \
+            --application-name "damo" \
+            --deployment-group-name "$DG" \
+            --s3-location bucket="${{ env.DEPLOY_BUCKET }}",key="$S3_KEY",bundleType=zip
 
 
   notify:
