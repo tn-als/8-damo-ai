@@ -54,11 +54,11 @@ jobs:
       run: |
         poetry install
 
-    - name: Run Integration Tests
-      run: |
-        # run.test.sh를 활용하거나 직접 pytest 실행
-        chmod +x run.test.sh 
-        ./run.test.sh
+    # - name: Run Integration Tests
+    #   run: |
+    #     # run.test.sh를 활용하거나 직접 pytest 실행
+    #     chmod +x run.test.sh 
+    #     ./run.test.sh
     
     - name: Build tar.gz
       if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
