@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   HOST: ${{ secrets.AI_PROD_SERVER_HOST }}
   USER: ${{ secrets.AI_PROD_SERVER_USER }}
