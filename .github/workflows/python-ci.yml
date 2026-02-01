@@ -16,7 +16,7 @@ env:
   INCOMING_DIR: /home/ubuntu/opt/ai-prod/incoming
 
   ARTIFACT_FILE: ai-app.tar.gz
-  DEPLOY_SCRIPT: app/scripts/deploy_bigbang.sh
+  DEPLOY_SCRIPT: scripts/deploy_bigbang.sh
 
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
   MONGODB_URI: ${{ secrets.MONGODB_URI }}
