@@ -132,27 +132,21 @@ jobs:
           username: ${{ env.USER }}
           port: ${{ env.PORT }}
           key: ${{ env.KEY }}
-          script_stop: true
           timeout: 300s
           command_timeout: 60s
           script: |
             set -euo pipefail
             cd /home/ubuntu
             
-            # Set AWS credentials temporarily
-            export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-            export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-            export AWS_DEFAULT_REGION="${{ env.AWS_REGION }}"
-            
             # Set environment variables for docker-compose
             export ECR_REPO="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_DEV }}"
             export IMAGE_TAG="${{ github.sha }}"
             
-            # ECR login
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            # ECR login (uses IAM role)
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
             
-            sudo docker compose pull
-            sudo docker compose up -d
+            docker compose pull
+            docker compose up -d
 
 
   notify:
