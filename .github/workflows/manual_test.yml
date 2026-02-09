@@ -21,36 +21,56 @@ env:
   REMOTE_DIR: /home/ubuntu/opt/ai-prod
   ROLLBACK_SCRIPT: app/scripts/rollback.sh
 
+  AWS_REGION: ap-northeast-2
+  DEPLOY_BUCKET: ${{ secrets.DEPLOY_BUCKET }}
+  S3_KEY_PREFIX: ${{ secrets.S3_KEY_PREFIX}}
+  CODEDEPLOY_APP: damo-ai
+  CODEDEPLOY_GROUP_PROD: damo-ai-prod
+  CODEDEPLOY_GROUP_DEV: damo-ai-dev
+
+
 jobs:
   rollback:
     name: Rollback
     runs-on: ubuntu-latest
 
     steps:
-      - name: Rollback via SSH (run rollback.sh)
-        uses: appleboy/ssh-action@master
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.AI_PROD_SERVER_HOST }}
-          username: ${{ secrets.AI_PROD_SERVER_USER}}
-          key: ${{ secrets.AI_PROD_SERVER_KEY }}
-          command_timeout: 10m
-          script: |
-            set -euo pipefail
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
 
-            cd ${{ env.REMOTE_DIR }}
+      - name: Package rollback bundle
+        run: |
+          set -euo pipefail
+          zip -r rollback-bundle.zip appspec.yml scripts/rollback.sh
 
-            echo "== AI Rollback =="
-            echo "Reason: ${{ github.event.inputs.reason }}"
-            echo "Rollback script: ${{ env.REMOTE_DIR }}/${{ env.ROLLBACK_SCRIPT }}"
-            echo
+      - name: Upload to S3
+        run: |
+          set -euo pipefail
+          KEY="${{ env.S3_KEY_PREFIX }}/${{ github.run_id }}.zip"
+          aws s3 cp rollback-bundle.zip "s3://${{ env.S3_BUCKET }}/${KEY}"
+          echo "S3_KEY=${KEY}" >> $GITHUB_ENV
 
-            if [ ! -f "${{ env.ROLLBACK_SCRIPT }}" ]; then
-              echo "ERROR: rollback.sh not found"
-              exit 1
-            fi
+      - name: Create CodeDeploy deployment
+        run: |
+          set -euo pipefail
 
-            chmod +x "${{ env.ROLLBACK_SCRIPT }}"
-            bash "./${{ env.ROLLBACK_SCRIPT }}"
+          if [ "${{ github.event.inputs.target }}" = "prod" ]; then
+            GROUP="${{ env.CODEDEPLOY_GROUP_PROD }}"
+          else
+            GROUP="${{ env.CODEDEPLOY_GROUP_DEV }}"
+          fi
+
+          aws deploy create-deployment \
+            --application-name "${{ env.CODEDEPLOY_APP }}" \
+            --deployment-group-name "${GROUP}" \
+            --s3-location bucket=${{ env.S3_BUCKET }},key=${{ env.S3_KEY }},bundleType=zip \
+            --description "AI rollback: ${{ github.event.inputs.reason }} (run ${{ github.run_id }})" \
+            --file-exists-behavior OVERWRITE
 
 
   notify:
