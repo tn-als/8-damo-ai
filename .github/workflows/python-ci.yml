@@ -154,8 +154,30 @@ jobs:
             echo "DEBUG: docker-compose.yml content:"
             cat docker-compose.yml || echo "No docker-compose.yml found"
             
+            # Debug: Check if variables are preserved
+            echo "DEBUG: Before sudo - ECR_REPO=${ECR_REPO}"
+            echo "DEBUG: Before sudo - IMAGE_TAG=${IMAGE_TAG}"
+            
+            # Check what docker-compose sees
+            echo "DEBUG: What docker-compose sees:"
+            env | grep -E "(ECR_REPO|IMAGE_TAG)" || echo "No env vars found"
+            
+            # Try direct substitution
+            echo "DEBUG: Trying direct substitution:"
+            FULL_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
+            echo "DEBUG: Full image name = ${FULL_IMAGE}"
+            
+            # Update docker-compose.yml with actual image name
+            sed -i.bak "s|\${ECR_REPO}:\${IMAGE_TAG}|${FULL_IMAGE}|g" docker-compose.yml
+            echo "DEBUG: Updated docker-compose.yml:"
+            cat docker-compose.yml
+            
+            # Now try to pull
             sudo docker compose pull
             sudo docker compose up -d
+            
+            # Restore original file
+            mv docker-compose.yml.bak docker-compose.yml
 
 
   notify:
