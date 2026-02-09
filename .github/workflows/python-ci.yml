@@ -134,13 +134,25 @@ jobs:
           key: ${{ env.KEY }}
           timeout: 300s
           command_timeout: 60s
+          envs: ECR_REGISTRY,ECR_REPO_DEV,GITHUB_SHA
           script: |
             set -euo pipefail
             cd /home/ubuntu
             
+            # Debug environment variables
+            echo "DEBUG: ECR_REGISTRY=${{ env.ECR_REGISTRY }}"
+            echo "DEBUG: ECR_REPO_DEV=${{ env.ECR_REPO_DEV }}"
+            echo "DEBUG: GITHUB_SHA=${{ github.sha }}"
+            
             # Set environment variables for docker-compose
             export ECR_REPO="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_DEV }}"
             export IMAGE_TAG="${{ github.sha }}"
+            echo "DEBUG: ECR_REPO=${ECR_REPO}"
+            echo "DEBUG: IMAGE_TAG=${IMAGE_TAG}"
+            
+            # Show docker-compose file content
+            echo "DEBUG: docker-compose.yml content:"
+            cat docker-compose.yml || echo "No docker-compose.yml found"
             
             sudo docker compose pull
             sudo docker compose up -d
