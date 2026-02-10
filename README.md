@@ -124,24 +124,22 @@ graph LR
 ```text
 /root
   ├── gateway/                    # [관리: Hayden] 서비스 진입점 (API Gateway)
-  │    ├── main.py                # 라우팅 로직
+  │    ├── __init__.py
   │    └── Dockerfile             # 게이트웨이 빌드
   │
   ├── shared/                     # [공통] 전 팀원이 임포트하여 사용하는 라이브러리
   │    ├── database/              # MongoDB 연결 및 기본 CRUD 클라이언트
   │    ├── state/                 # 서비스 간 상태 추적 (Redis 등)
   │    ├── schemas/               # 모든 API 데이터 규격 (Pydantic 모델)
+  │    ├── monitoring/            # Langfuse 관찰성(Observability) 및 모니터링
   │    ├── logging/               # 분산 로깅 및 X-Request-ID 전파
-  │    └── utils/                 # 기타 공용 유틸
+  │    └── utils/                 # 기타 공용 유틸 (config 등)
   │
   ├── services/                   # [기능 서비스] 마이크로서비스 엔진들
   │    │
-  │    ├── core-service/          # [팀원 C] 경량 기능 통합 (Validation & Management)
+  │    ├── core_service/          # [팀원 C] 경량 기능 통합 (Validation & Management)
   │    │    ├── app/
-  │    │    │    ├── api/         # 세부 도메인별 라우터 분리
-  │    │    │    │    ├── receipt.py
-  │    │    │    │    ├── persona.py
-  │    │    │    │    └── fix.py
+  │    │    │    ├── api/         # 세부 도메인별 라우터 분리 (receipt, persona, fix)
   │    │    │    └── main.py      # Core 통합 엔드포인트
   │    │    └── Dockerfile
   │    │
@@ -155,8 +153,17 @@ graph LR
   │         │    └── main.py      # 대화 보정 로직
   │         └── Dockerfile
   │
+  ├── test/                       # [테스트] 단위 및 통합 테스트 코드
+  │    ├── shared/                # shared 모듈 테스트 (database, monitoring 등)
+  │    ├── services/              # 각 서비스별 통합 테스트
+  │    ├── conftest.py            # Pytest 공통 Fixture 및 설정
+  │    └── pytest.ini             # Pytest 환경 설정
+  │
+  ├── run_dev.sh                  # 로컬 개발 및 Docker 실행 통합 제어 스크립트
+  ├── run_test.sh                 # 테스트 실행 전용 제어 스크립트
+  ├── docker-compose.yml          # 공통 인프라 (DB 등) 설정
   ├── docker-compose.dev.yml      # 로컬 개발용 통합 실행 파일
-  ├── .env                        # DB URL 등 환경변수 관리
+  ├── .env                        # DB URL, API Key 등 환경변수 관리
   ├── .gitignore                  # __pycache__ 등 제외
   └── requirements.txt            # 프로젝트 공통 패키지 명세
 ```
