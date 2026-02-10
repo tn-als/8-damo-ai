@@ -51,7 +51,7 @@ run_local() {
             1|2|3|4)
                 idx=$((svc_choice-1))
                 echo -e "${GREEN}🚀 ${SERVICES[$idx]} (Local) 실행 중...${NC}"
-                uvicorn ${APP_PATHS[$idx]} --host 0.0.0.0 --port ${PORTS[$idx]} --reload
+                ENABLE_METRICS=true uvicorn ${APP_PATHS[$idx]} --host 0.0.0.0 --port ${PORTS[$idx]} --reload
                 break
                 ;;
             b) return ;;

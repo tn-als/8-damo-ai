@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "damo"
     GOOGLE_API_KEY: str
     OPENAI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3-flash-preview"
     OPENAI_MODEL: str = "gpt-5-nano"
     LANGFUSE_SECRET_KEY: str
     LANGFUSE_PUBLIC_KEY: str
