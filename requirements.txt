@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+python-dotenv
+motor
+structlog 
+langchain
+langfuse
+pytest
+pytest-asyncio
+httpx
