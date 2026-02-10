@@ -35,7 +35,7 @@ def setup_logger(name: str):
         logger.addHandler(handler)
     return logger
 
-def setup_prometheus(app: FastAPI):
+def setup_prometheus(app: FastAPI, endpoint: str = "/ai/metrics"):
     """
     FastAPI 앱에 Prometheus 모니터링을 설정합니다.
     """
@@ -49,7 +49,7 @@ def setup_prometheus(app: FastAPI):
     # 1. 앱과 연결 (Instrumentation)
     instrumentator.instrument(app)
     
-    # 2. 메트릭 노출 경로 설정 (보통 /metrics)
-    instrumentator.expose(app, endpoint="/metrics")
+    # 2. 메트릭 노출 경로 설정
+    instrumentator.expose(app, endpoint=endpoint)
     
     return instrumentator
