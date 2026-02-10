@@ -11,7 +11,7 @@ from shared.utils.client import ServiceClient
 
 # 로깅 설정
 logger = setup_logger("gateway")
-app = FastAPI(title="API Gateway", description="API Gateway for Damo AI Features", version="0.0.1")
+app = FastAPI(title="API Gateway", description="API Gateway for Damo AI Features", version="0.1.0")
 app.add_middleware(CorrelationIdMiddleware)
 setup_prometheus(app)
 
