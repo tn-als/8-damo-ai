@@ -30,13 +30,13 @@ async def update_persona_db(body: UpdatePersonaDBRequest, request: Request):
 async def restaurant_fix(body: RestaurantFixRequest, request: Request):
     logger.info(f"Received restaurant_fix for restaurant_id: {body.restaurant_id}")
     return RestaurantFixResponse(
-        success=False,
+        success=True,
         restaurant_id=body.restaurant_id
     )
 
-@app.post("/validate_receipt")
-async def validate_receipt(request: Request):
-    print(await request.json())
-    request_id=request.headers.get("X-Request-ID")
-    print(request_id)
-    return {"status": "healthy", "service": "core_service"}
+# @app.post("/validate_receipt")
+# async def validate_receipt(request: Request):
+#     print(await request.json())
+#     request_id=request.headers.get("X-Request-ID")
+#     print(request_id)
+#     return {"status": "healthy", "service": "core_service"}

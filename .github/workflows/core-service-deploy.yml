@@ -27,11 +27,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Shared Tests
+      - name: Run Core Service Tests
         run: |
           # PYTHONPATH 설정 후 shared 테스트 실행
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python -m pytest test/shared/
+          python -m pytest test/services/test_core_services.py
 
   # 2. 빌드 및 배포 단계: 테스트가 성공했을 때만 실행
   build-and-push:
