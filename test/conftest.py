@@ -16,6 +16,7 @@ def set_test_env():
             os.environ[key] = value
 
 set_test_env()
+import asyncio
 
 @pytest.fixture(scope="function")
 async def db_manager():
