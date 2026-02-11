@@ -68,11 +68,15 @@ run_docker() {
         case $svc_choice in
             1|2|3|4)
                 idx=$((svc_choice-1))
-                img_name="damo-${SERVICES[$idx]}"
-                echo -e "${BLUE}🐳 ${SERVICES[$idx]} (Docker) 빌드 중...${NC}"
-                docker build -t $img_name -f ${DOCKERFILES[$idx]} .
-                echo -e "${GREEN}🚀 컨테이너 실행 중...${NC}"
-                docker run -it --rm -p ${PORTS[$idx]}:${PORTS[$idx]} --env-file .env $img_name
+                service_name="${SERVICES[$idx]}"
+                echo -e "${BLUE}🐳 ${service_name} (Docker Compose) 빌드 및 재생성 중...${NC}"
+                
+                # 최상위 디렉토리의 docker-compose.dev.yml을 사용하여 특정 서비스만 빌드 및 재시작
+                docker-compose -f ../docker-compose.dev.yml up -d --build $service_name
+                
+                echo -e "${GREEN}✅ 컨테이너가 성공적으로 갱신되었습니다.${NC}"
+                echo -e "${YELLOW}힌트: 'docker-compose -f ../docker-compose.dev.yml logs -f $service_name'으로 로그를 확인할 수 있습니다.${NC}"
+                sleep 2
                 break
                 ;;
             b) return ;;
@@ -89,7 +93,7 @@ run_ghcr() {
         case $svc_choice in
             1|2|3|4)
                 idx=$((svc_choice-1))
-                img_name="damo-${SERVICES[$idx]}"
+                img_name="damo_ai_${SERVICES[$idx]}"
                 full_tag="ghcr.io/$GITHUB_USER/$img_name:latest"
                 
                 echo -e "${BLUE}🐳 ${SERVICES[$idx]} 빌드 및 태깅 중...${NC}"
