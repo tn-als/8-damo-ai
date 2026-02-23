@@ -15,6 +15,8 @@ app = FastAPI(title="API Gateway", description="API Gateway for Damo AI Features
 app.add_middleware(CorrelationIdMiddleware)
 setup_prometheus(app)
 
+# 서비스 URL (개발 서버 및 프로덕션 환경)
+# Docker Compose 환경에서는 'core_service', 'recommendation'이 실제 서비스 이름입니다.
 SERVICE_MAP = {
     "reco": os.getenv("RECOMMENDATION_URL", "http://recommendation:8000"),
     "core": os.getenv("CORE_SERVICE_URL", "http://core_service:8000"),
@@ -50,7 +52,7 @@ async def _proxy_to_logic_container(service_name: str, target_path: str, data: o
         raise HTTPException(status_code=502, detail="Upstream Service Error")
 
 # Core-Service 공개(Public) 엔드포인트들
-@app.post("/ai/api/update_persona_db", response_model=UpdatePersonaDBResponse, tags=["Persona"])
+@app.post("/ai/api/persona", response_model=UpdatePersonaDBResponse, tags=["Persona"])
 async def update_persona_db(data: UpdatePersonaDBRequest):
     return await _proxy_to_logic_container("core", "/persona", data, UpdatePersonaDBResponse)
 
