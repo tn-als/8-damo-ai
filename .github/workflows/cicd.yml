@@ -129,7 +129,7 @@ jobs:
           sudo wg-quick up wg0
           echo "Waiting for WireGuard handshake..."
           for i in {1..15}; do
-            ping -c 1 ${{ env.HOST }} > /dev/null 2>&1 || true
+            ping -c 1 10.10.0.1 > /dev/null 2>&1 || true
             if sudo wg show wg0 | grep -q "latest handshake"; then
               echo "VPN connected (attempt $i)"
               break
