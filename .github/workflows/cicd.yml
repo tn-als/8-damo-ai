@@ -160,7 +160,7 @@ jobs:
             -o StrictHostKeyChecking=no \
             -p ${{ env.PORT }} \
             ${{ env.USER }}@${{ env.HOST }} \
-            "set -euo pipefail && cd /home/ubuntu && sudo docker compose pull && sudo docker compose up -d"
+            "set -euo pipefail && aws ecr get-login-password --region ap-northeast-2 | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }} && cd /home/ubuntu && sudo docker compose pull && sudo docker compose up -d"
           rm -f /tmp/deploy_key
 
       - name: Teardown WireGuard
