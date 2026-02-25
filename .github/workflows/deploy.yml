@@ -130,11 +130,22 @@ jobs:
           sudo wg-quick up wg0
           sudo ip route add ${{ env.HOST }}/32 dev wg0
 
-          # 디버깅: WireGuard 상태 확인
-          echo "=== WireGuard config ==="
+          # 디버깅: 설정 파일 확인 (PrivateKey 마스킹)
+          echo "=== WG_CONF file content ==="
+          sudo sed 's/PrivateKey.*/PrivateKey = [HIDDEN]/' /etc/wireguard/wg0.conf
+
+          echo "=== WireGuard interface ==="
           sudo wg show wg0
           echo "=== Route table ==="
           ip route show dev wg0
+
+          # UDP 연결 테스트
+          echo "=== UDP connectivity test to 43.203.30.170:51820 ==="
+          echo "test" | nc -u -w 3 43.203.30.170 51820 && echo "UDP send OK" || echo "UDP send failed"
+
+          # 러너의 공인 IP 확인
+          echo "=== Runner public IP ==="
+          curl -s ifconfig.me || true
 
           for i in {1..30}; do
             ping -c 1 10.10.0.1 > /dev/null 2>&1 || true
