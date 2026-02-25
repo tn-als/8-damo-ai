@@ -9,15 +9,18 @@ on:
       - dev
 
 env:
-  HOST: ${{ secrets.AI_DEV_SERVER_HOST }}
-  USER: ${{ secrets.AI_DEV_SERVER_USER }}
-  PORT: ${{ secrets.AI_DEV_SERVER_PORT }}
+  HOST: ${{ secrets.AI_PROD_SERVER_HOST }}
+  USER: ${{ secrets.AI_PROD_SERVER_USER }}
+  PORT: ${{ secrets.AI_PROD_SERVER_PORT }}
   KEY: ${{ secrets.AI_PROD_SERVER_KEY }}
 
   AWS_REGION: ap-northeast-2
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
   ECR_REPO_DEV: dev/ai
   ECR_REPO_PROD: prod/ai
+
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
   MONGODB_URI: ${{ secrets.MONGODB_URI }}
@@ -55,8 +58,8 @@ jobs:
             AWS_ENDPOINT_URL: "dummy"
             AWS_REGION: ${{env.AWS_REGION}}
             AWS_BUCKET_NAME: "dev-damo-s3"
-            AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
-            AWS_SECRET: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+            AWS_ACCESS_KEY_ID: ${{env.AWS_ACCESS_KEY_ID}}
+            AWS_SECRET: ${{env.AWS_SECRET_ACCESS_KEY}}
             LANGSMITH_API_KEY: "dummy"
             OPENROUTER_API_KEY: "dummy"
             OPENROUTER_MODEL: "dummy"
@@ -70,7 +73,6 @@ jobs:
   build_and_push:
     needs: ci
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && needs.ci.result == 'success'
 
     steps:
       - name: Checkout Code
@@ -145,7 +147,7 @@ jobs:
             -o StrictHostKeyChecking=no \
             -p ${{ env.PORT }} \
             ${{ env.USER }}@${{ env.HOST }} \
-            "set -euo pipefail && aws ecr get-login-password --region ap-northeast-2 | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }} && cd /home/ubuntu && sudo docker compose pull gateway && sudo docker compose up -d gateway"
+            "set -euo pipefail && cd /home/ubuntu && sudo docker compose pull && sudo docker compose up -d"
           rm -f /tmp/deploy_key
 
       - name: Teardown WireGuard
