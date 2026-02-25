@@ -70,6 +70,7 @@ jobs:
   build_and_push:
     needs: ci
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && needs.ci.result == 'success'
 
     steps:
       - name: Checkout Code
