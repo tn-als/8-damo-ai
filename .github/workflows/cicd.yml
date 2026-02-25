@@ -125,32 +125,19 @@ jobs:
       - name: Setup WireGuard
         run: |
           sudo apt-get update && sudo apt-get install -y wireguard
-          echo "=== Runner IP before VPN ==="
-          ip addr show | grep "inet "
-          echo "=== Routes before VPN ==="
-          ip route show
           echo "${{ secrets.WG_CONF }}" | sed '/^DNS/d' | sudo tee /etc/wireguard/wg0.conf
           sudo chmod 600 /etc/wireguard/wg0.conf
           sudo wg-quick up wg0
           sudo ip route add ${{ env.HOST }}/32 dev wg0
-          echo "=== Routes after VPN ==="
-          ip route show
-          echo "Waiting for WireGuard handshake..."
           for i in {1..15}; do
             ping -c 1 10.10.0.1 > /dev/null 2>&1 || true
             if sudo wg show wg0 | grep -q "latest handshake"; then
               echo "VPN connected (attempt $i)"
               break
-              ]
             fi
             echo "Attempt $i: not connected yet, retrying..."
             sleep 2
           done
-          sudo wg show
-
-      - name: Test connectivity to AI instance
-        run: |
-          nc -zv ${{ env.HOST }} ${{ env.PORT }} -w 10 && echo "PORT OPEN" || echo "PORT CLOSED/TIMEOUT"
 
       - name: Deploy via SSH (pull ECR image and run docker-compose)
         run: |
