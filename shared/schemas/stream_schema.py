@@ -7,17 +7,23 @@ from bson import ObjectId
 
 class EventType(str, Enum):
     RECOMMENDATION_REQUEST = "RECOMMENDATION_REQUEST"
+    RECOMMENDATION_STREAMING = "RECOMMENDATION_STREAMING"
     RECOMMENDATION_RESPONSE = "RECOMMENDATION_RESPONSE"
+    RECOMMENDATION_RETRY = "RECOMMENDATION_RETRY"
     PERSONA_REQUEST = "PERSONA_REQUEST"
     OCR_REQUEST = "OCR_REQUEST"
     OCR_RESPONSE = "OCR_RESPONSE"
+    FIX_REQUEST = "FIX_REQUEST"
 
 class TopicType(str, Enum):
     RECOMMENDATION_REQUEST = "recommendation-request"
+    RECOMMENDATION_STREAMING = "recommendation-streaming"
     RECOMMENDATION_RESPONSE = "recommendation-response"
+    RECOMMENDATION_RETRY = "recommendation-retry"
     PERSONA_REQUEST = "user-persona-update"
     OCR_REQUEST = "ocr-request"
     OCR_RESPONSE = "ocr-response"
+    FIX_REQUEST = "fix-request"
 
 PyObjectId = Annotated[
     str, 
