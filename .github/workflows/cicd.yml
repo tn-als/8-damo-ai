@@ -108,6 +108,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          platforms: linux/amd64
           tags: |
             ${{ env.IMAGE }}
             ${{ env.LATEST_IMAGE }}
@@ -124,9 +125,15 @@ jobs:
       - name: Setup WireGuard
         run: |
           sudo apt-get update && sudo apt-get install -y wireguard
+          echo "=== Runner IP before VPN ==="
+          ip addr show | grep "inet "
+          echo "=== Routes before VPN ==="
+          ip route show
           echo "${{ secrets.WG_CONF }}" | sed '/^DNS/d' | sudo tee /etc/wireguard/wg0.conf
           sudo chmod 600 /etc/wireguard/wg0.conf
           sudo wg-quick up wg0
+          echo "=== Routes after VPN ==="
+          ip route show
           echo "Waiting for WireGuard handshake..."
           for i in {1..15}; do
             ping -c 1 10.10.0.1 > /dev/null 2>&1 || true
