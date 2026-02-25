@@ -140,6 +140,10 @@ jobs:
           done
           sudo wg show
 
+      - name: Test connectivity to AI instance
+        run: |
+          nc -zv ${{ env.HOST }} ${{ env.PORT }} -w 10 && echo "PORT OPEN" || echo "PORT CLOSED/TIMEOUT"
+
       - name: Deploy via SSH (pull ECR image and run docker-compose)
         uses: appleboy/ssh-action@master
         with:
