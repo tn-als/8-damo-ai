@@ -132,6 +132,7 @@ jobs:
           echo "${{ secrets.WG_CONF }}" | sed '/^DNS/d' | sudo tee /etc/wireguard/wg0.conf
           sudo chmod 600 /etc/wireguard/wg0.conf
           sudo wg-quick up wg0
+          sudo ip route add ${{ env.HOST }}/32 dev wg0
           echo "=== Routes after VPN ==="
           ip route show
           echo "Waiting for WireGuard handshake..."
