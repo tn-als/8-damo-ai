@@ -4,6 +4,17 @@
 > 더 이상 고민하지 마세요. AI가 여러분의 팀원 모두가 만족할 최적의 장소를 찾아드립니다.
 
 ---
+> **업데이트**
+> 2026-02-25
+> 1. Kafka 도입으로 인한 연결 방식 변경
+>    - 통신 라이브러리를 FastAPI(REST API)에서 FastStream(Kafka)로 변경
+> 2. git에서 사용하는 브랜치를 다음과 같이 변경
+>    - main(프로덕션 브랜치)
+>    - dev(개발 브랜치)
+>    - feature/v2/gateway(베이스 브랜치)
+>    - feature/v2/iterative-discussion(토론 브랜치, 외부 SaaS 사용)
+
+---
 
 ## 기술 스택
 
