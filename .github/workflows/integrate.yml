@@ -1,0 +1,44 @@
+name: Gateway Build and Push
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12.12'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run Gateway Tests
+      env:
+        GOOGLE_API_KEY: "dummy"
+        OPENAI_API_KEY: "dummy"
+        MONGODB_URI: "mongodb://localhost:27017"
+        LANGFUSE_SECRET_KEY: "dummy"
+        LANGFUSE_PUBLIC_KEY: "dummy"
+        LANGFUSE_BASE_URL: "dummy"
+        AWS_ENDPOINT_URL: "dummy"
+        AWS_REGION: "dummy"
+        AWS_BUCKET_NAME: "dummy"
+        AWS_ACCESS_KEY_ID: "dummy"
+        AWS_SECRET: "dummy"
+        LANGSMITH_API_KEY: "dummy"
+        OPENROUTER_API_KEY: "dummy"
+        OPENROUTER_MODEL: "dummy"
+        KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
+      run: |
+        # PYTHONPATH 설정 후 게이트웨이 전용 테스트 실행
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
+        python -m pytest test/gateway/test_gateway.py
+
+# 실행은 python gateway/main.py 로 실행
