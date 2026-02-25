@@ -158,7 +158,7 @@ jobs:
           host: ${{ env.HOST }}
           username: ${{ env.USER }}
           port: ${{ env.PORT }}
-          key: ${{ env.KEY }}
+          key: ${{ secrets.AI_PROD_SERVER_KEY }}
           script: |
             set -euo pipefail
             cd /home/ubuntu
