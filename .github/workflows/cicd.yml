@@ -153,17 +153,15 @@ jobs:
           nc -zv ${{ env.HOST }} ${{ env.PORT }} -w 10 && echo "PORT OPEN" || echo "PORT CLOSED/TIMEOUT"
 
       - name: Deploy via SSH (pull ECR image and run docker-compose)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.HOST }}
-          username: ${{ env.USER }}
-          port: ${{ env.PORT }}
-          key: ${{ secrets.AI_PROD_SERVER_KEY }}
-          script: |
-            set -euo pipefail
-            cd /home/ubuntu
-            sudo docker compose pull
-            sudo docker compose up -d
+        run: |
+          echo "${{ secrets.AI_PROD_SERVER_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -p ${{ env.PORT }} \
+            ${{ env.USER }}@${{ env.HOST }} \
+            "set -euo pipefail && cd /home/ubuntu && sudo docker compose pull && sudo docker compose up -d"
+          rm -f /tmp/deploy_key
 
       - name: Teardown WireGuard
         if: always()
