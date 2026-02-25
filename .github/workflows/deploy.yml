@@ -1,9 +1,7 @@
-name: Gateway Build and Push
+name: deploy.yml
 
 on:
-  push:
-    branches:
-      - dev
+  workflow_dispatch:
 
 jobs:
   # 1. 테스트 단계: 코드가 안전한지 먼저 검증 (도커 빌드 전 실행)

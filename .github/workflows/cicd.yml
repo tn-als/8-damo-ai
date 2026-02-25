@@ -1,4 +1,4 @@
-name: Gateway Build and Push
+name: CI/CD Pipeline
 
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
       - name: Run Gateway Tests
         env:
             GOOGLE_API_KEY: ${{env.GOOGLE_API_KEY}}
-            OPENAI_API_KEY: ${{env.OPENAI_API_KEY}}
+            OPENAI_API_KEY: ${{env.OPENAI_API_KEY}}ㅣ
             MONGODB_URI: ${{ env.MONGODB_URI}}
             LANGFUSE_SECRET_KEY: ${{env.LANGFUSE_SECRET_KEY}}
             LANGFUSE_PUBLIC_KEY: ${{env.LANGFUSE_PUBLIC_KEY}}
