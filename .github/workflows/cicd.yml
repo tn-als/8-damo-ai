@@ -34,7 +34,7 @@ env:
   DEPLOYMENT_GROUP_PROD: prod-damo-ai
 
   # GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
-  # AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
+  AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
   # AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
   # LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
   # OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
