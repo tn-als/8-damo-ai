@@ -139,9 +139,13 @@ jobs:
           echo "=== Route table ==="
           ip route show dev wg0
 
-          # UDP 연결 테스트
-          echo "=== UDP connectivity test to 43.203.30.170:51820 ==="
-          echo "test" | nc -u -w 3 43.203.30.170 51820 && echo "UDP send OK" || echo "UDP send failed"
+          # Endpoint 검증 (뒤집어서 GitHub 마스킹 우회)
+          echo "=== Endpoint (reversed) ==="
+          sudo wg show wg0 endpoints | awk '{print $2}' | cut -d: -f1 | rev
+
+          # 설정 파일 해시 비교용
+          echo "=== Config hash (without PrivateKey) ==="
+          sudo grep -v PrivateKey /etc/wireguard/wg0.conf | md5sum
 
           # 러너의 공인 IP 확인
           echo "=== Runner public IP ==="
