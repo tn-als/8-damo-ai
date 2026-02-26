@@ -1,0 +1,133 @@
+name: Deploy Dev (SSH)
+
+on:
+  workflow_call:
+    secrets:
+      AI_SERVER_USER:
+        required: true
+      AI_SERVER_PORT:
+        required: true
+      AI_SERVER_KEY:
+        required: true
+      AI_DEV_SERVER_HOST:
+        required: true
+      ECR_REGISTRY:
+        required: true
+      GOOGLE_API_KEY:
+        required: true
+      MONGODB_URI:
+        required: true
+      GEMINI_MODEL:
+        required: true
+      OPENAI_API_KEY:
+        required: true
+      LANGFUSE_SECRET_KEY:
+        required: true
+      LANGFUSE_PUBLIC_KEY:
+        required: true
+      LANGFUSE_BASE_URL:
+        required: true
+      AWS_ENDPOINT_URL:
+        required: true
+      AWS_BUCKET_NAME:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      LANGSMITH_API_KEY:
+        required: true
+      OPENROUTER_API_KEY:
+        required: true
+      OPENROUTER_MODEL:
+        required: true
+      KAFKA_BOOTSTRAP_SERVERS:
+        required: true
+      WG_CONF:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup WireGuard
+        run: |
+          sudo apt-get update && sudo apt-get install -y wireguard
+          echo "${{ secrets.WG_CONF }}" | sed '/^DNS/d' | sudo tee /etc/wireguard/wg0.conf
+          sudo chmod 600 /etc/wireguard/wg0.conf
+          sudo wg-quick up wg0
+          sudo ip route add ${{ secrets.AI_DEV_SERVER_HOST }}/32 dev wg0
+          for i in {1..15}; do
+            ping -c 1 10.10.0.1 > /dev/null 2>&1 || true
+            if sudo wg show wg0 | grep -q "latest handshake"; then
+              echo "VPN handshake OK (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: not connected yet, retrying..."
+            sleep 2
+          done
+          sleep 3
+          for i in {1..10}; do
+            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes \
+              -p ${{ secrets.AI_SERVER_PORT }} -i /dev/null \
+              ${{ secrets.AI_SERVER_USER }}@${{ secrets.AI_DEV_SERVER_HOST }} exit 2>/dev/null; then
+              break
+            fi
+            if ping -c 1 -W 2 ${{ secrets.AI_DEV_SERVER_HOST }} > /dev/null 2>&1; then
+              echo "AI server reachable (attempt $i)"
+              break
+            fi
+            echo "Waiting for AI server route... (attempt $i)"
+            sleep 2
+          done
+
+      - name: Deploy via SSH
+        run: |
+          echo "${{ secrets.AI_SERVER_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -p ${{ secrets.AI_SERVER_PORT }} \
+            ${{ secrets.AI_SERVER_USER }}@${{ secrets.AI_DEV_SERVER_HOST }} \
+            'set -euo pipefail && \
+            echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" > /home/ubuntu/app/.env && \
+            echo "MONGODB_URI=$MONGODB_URI" >> /home/ubuntu/app/.env && \
+            echo "GEMINI_MODEL=$GEMINI_MODEL" >> /home/ubuntu/app/.env && \
+            echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> /home/ubuntu/app/.env && \
+            echo "LANGFUSE_SECRET_KEY=$LANGFUSE_SECRET_KEY" >> /home/ubuntu/app/.env && \
+            echo "LANGFUSE_PUBLIC_KEY=$LANGFUSE_PUBLIC_KEY" >> /home/ubuntu/app/.env && \
+            echo "LANGFUSE_BASE_URL=$LANGFUSE_BASE_URL" >> /home/ubuntu/app/.env && \
+            echo "AWS_ENDPOINT_URL=$AWS_ENDPOINT_URL" >> /home/ubuntu/app/.env && \
+            echo "AWS_REGION=ap-northeast-2" >> /home/ubuntu/app/.env && \
+            echo "AWS_BUCKET_NAME=$AWS_BUCKET_NAME" >> /home/ubuntu/app/.env && \
+            echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> /home/ubuntu/app/.env && \
+            echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> /home/ubuntu/app/.env && \
+            echo "LANGSMITH_API_KEY=$LANGSMITH_API_KEY" >> /home/ubuntu/app/.env && \
+            echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> /home/ubuntu/app/.env && \
+            echo "OPENROUTER_MODEL=$OPENROUTER_MODEL" >> /home/ubuntu/app/.env && \
+            echo "KAFKA_BOOTSTRAP_SERVERS=$KAFKA_BOOTSTRAP_SERVERS" >> /home/ubuntu/app/.env && \
+            chmod 600 /home/ubuntu/app/.env && \
+            aws ecr get-login-password --region ap-northeast-2 | sudo docker login --username AWS --password-stdin $ECR_REGISTRY && \
+            cd /home/ubuntu && sudo docker compose pull gateway && sudo docker compose up -d gateway'
+          rm -f /tmp/deploy_key
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
+          KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+      - name: Teardown WireGuard
+        if: always()
+        run: sudo wg-quick down wg0 || true

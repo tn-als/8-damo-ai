@@ -33,6 +33,14 @@ env:
   DEPLOYMENT_GROUP_DEV: dev-damo-ai
   DEPLOYMENT_GROUP_PROD: prod-damo-ai
 
+  GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+  AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
+  AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+  LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
+  KAFKA_BOOTSTRAP_SERVERS: ${{ github.ref == 'refs/heads/main' && secrets.KAFKA_BOOTSTRAP_SERVERS_PROD || secrets.KAFKA_BOOTSTRAP_SERVERS_DEV }}
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -56,15 +64,15 @@ jobs:
             LANGFUSE_SECRET_KEY: ${{env.LANGFUSE_SECRET_KEY}}
             LANGFUSE_PUBLIC_KEY: ${{env.LANGFUSE_PUBLIC_KEY}}
             LANGFUSE_BASE_URL: ${{env.LANGFUSE_BASE_URL}}
-            AWS_ENDPOINT_URL: "dummy"
-            AWS_REGION: ap-northeast-2
-            AWS_BUCKET_NAME: "dev-damo-s3"
+            AWS_ENDPOINT_URL: ${{env.AWS_ENDPOINT_URL}}
+            AWS_REGION: ${{env.AWS_REGION}}
+            AWS_BUCKET_NAME: ${{env.AWS_BUCKET_NAME}}
             AWS_ACCESS_KEY_ID: ${{env.AWS_ACCESS_KEY_ID}}
             AWS_SECRET: ${{env.AWS_SECRET_ACCESS_KEY}}
-            LANGSMITH_API_KEY: "dummy"
-            OPENROUTER_API_KEY: "dummy"
-            OPENROUTER_MODEL: "dummy"
-            KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
+            LANGSMITH_API_KEY: ${{env.LANGSMITH_API_KEY}}
+            OPENROUTER_API_KEY: ${{env.OPENROUTER_API_KEY}}
+            OPENROUTER_MODEL: ${{env.OPENROUTER_MODEL}}
+            KAFKA_BOOTSTRAP_SERVERS: ${{env.KAFKA_BOOTSTRAP_SERVERS}}
         run: |
             export PYTHONPATH=$PYTHONPATH:$(pwd)
             python -m pytest test/gateway/test_gateway.py
@@ -204,6 +212,66 @@ jobs:
           ECR_REGISTRY=${ECR_REGISTRY}
           EOF
 
+          cat > scripts/before_install.sh <<'SCRIPTEOF'
+          #!/bin/bash
+          set -e
+
+          echo "BeforeInstall: Creating .env file..."
+          cat > /home/ubuntu/app/.env << 'ENVEOF'
+          GOOGLE_API_KEY=__GOOGLE_API_KEY__
+          MONGODB_URI=__MONGODB_URI__
+          GEMINI_MODEL=__GEMINI_MODEL__
+          OPENAI_API_KEY=__OPENAI_API_KEY__
+          LANGFUSE_SECRET_KEY=__LANGFUSE_SECRET_KEY__
+          LANGFUSE_PUBLIC_KEY=__LANGFUSE_PUBLIC_KEY__
+          LANGFUSE_BASE_URL=__LANGFUSE_BASE_URL__
+          AWS_ENDPOINT_URL=__AWS_ENDPOINT_URL__
+          AWS_REGION=__AWS_REGION__
+          AWS_BUCKET_NAME=__AWS_BUCKET_NAME__
+          AWS_ACCESS_KEY_ID=__AWS_ACCESS_KEY_ID__
+          AWS_SECRET_ACCESS_KEY=__AWS_SECRET_ACCESS_KEY__
+          LANGSMITH_API_KEY=__LANGSMITH_API_KEY__
+          OPENROUTER_API_KEY=__OPENROUTER_API_KEY__
+          OPENROUTER_MODEL=__OPENROUTER_MODEL__
+          KAFKA_BOOTSTRAP_SERVERS=__KAFKA_BOOTSTRAP_SERVERS__
+          ENVEOF
+          chmod 600 /home/ubuntu/app/.env
+          echo "BeforeInstall: .env file created"
+
+          echo "BeforeInstall: Stopping existing containers..."
+          if [ -d "/home/ubuntu/app" ]; then
+              cd /home/ubuntu/app
+              sudo docker compose down || true
+              sudo docker system prune -f || true
+
+              echo "BeforeInstall: Creating backup of current app..."
+              if [ -d "/home/ubuntu/app_backup" ]; then
+                  sudo rm -rf /home/ubuntu/app_backup
+              fi
+              sudo cp -r /home/ubuntu/app /home/ubuntu/app_backup
+          else
+              echo "BeforeInstall: No existing app found, skipping..."
+          fi
+          SCRIPTEOF
+
+          sed -i 's|__GOOGLE_API_KEY__|${{ secrets.GOOGLE_API_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__MONGODB_URI__|${{ secrets.MONGODB_URI }}|g' scripts/before_install.sh
+          sed -i 's|__GEMINI_MODEL__|${{ secrets.GEMINI_MODEL }}|g' scripts/before_install.sh
+          sed -i 's|__OPENAI_API_KEY__|${{ secrets.OPENAI_API_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__LANGFUSE_SECRET_KEY__|${{ secrets.LANGFUSE_SECRET_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__LANGFUSE_PUBLIC_KEY__|${{ secrets.LANGFUSE_PUBLIC_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__LANGFUSE_BASE_URL__|${{ secrets.LANGFUSE_BASE_URL }}|g' scripts/before_install.sh
+          sed -i 's|__AWS_ENDPOINT_URL__|${{ secrets.AWS_ENDPOINT_URL }}|g' scripts/before_install.sh
+          sed -i 's|__AWS_REGION__|ap-northeast-2|g' scripts/before_install.sh
+          sed -i 's|__AWS_BUCKET_NAME__|${{ secrets.AWS_BUCKET_NAME }}|g' scripts/before_install.sh
+          sed -i 's|__AWS_ACCESS_KEY_ID__|${{ secrets.AWS_ACCESS_KEY_ID }}|g' scripts/before_install.sh
+          sed -i 's|__AWS_SECRET_ACCESS_KEY__|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__LANGSMITH_API_KEY__|${{ secrets.LANGSMITH_API_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__OPENROUTER_API_KEY__|${{ secrets.OPENROUTER_API_KEY }}|g' scripts/before_install.sh
+          sed -i 's|__OPENROUTER_MODEL__|${{ secrets.OPENROUTER_MODEL }}|g' scripts/before_install.sh
+          sed -i 's|__KAFKA_BOOTSTRAP_SERVERS__|${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}|g' scripts/before_install.sh
+          chmod +x scripts/before_install.sh
+
           zip -r deployment.zip appspec.yml scripts/ docker-compose.yml
 
       - name: Upload bundle to S3
@@ -241,14 +309,15 @@ jobs:
             
             EVENT=$(aws deploy get-deployment \
               --deployment-id "${DEPLOYMENT_ID}" \
-              --query 'deploymentInfo.lifecycleEvents[?status=='"'"'InProgress'"'"'].name' \
+              --query 'deploymentInfo.lifecycleEvents[0].name' \
               --output text)
             
-            if [ -n "${EVENT}" ]; then
-              echo "$(date '+%Y-%m-%d %H:%M:%S') - Status: ${STATUS}, Event: ${EVENT}"
-            else
-              echo "$(date '+%Y-%m-%d %H:%M:%S') - Status: ${STATUS}"
-            fi
+            EVENT_STATUS=$(aws deploy get-deployment \
+              --deployment-id "${DEPLOYMENT_ID}" \
+              --query 'deploymentInfo.lifecycleEvents[0].status' \
+              --output text)
+            
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Status: ${STATUS}, Event: ${EVENT} (${EVENT_STATUS})"
             
             case "${STATUS}" in
               Succeeded)
@@ -268,7 +337,7 @@ jobs:
   notify:
     name: Notify Discord
     runs-on: ubuntu-latest
-    needs: [ci, build_and_push]
+    needs: [ci, build_and_push, deploy_dev, deploy_prod]
     if: always() && github.event_name == 'push'
 
     steps:
