@@ -57,3 +57,7 @@ Thumbs.db
 # dotenv
 # ======================
 .env
+
+TROUBLESHOOTING.md
+
+.claude
