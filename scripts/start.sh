@@ -4,9 +4,9 @@ set -e
 echo "ApplicationStart: Starting containers..."
 cd /home/ubuntu/app
 
-sudo docker compose --env-file scripts/image.env pull
+sudo docker compose --env-file .env pull
 
-sudo docker compose --env-file scripts/image.env up -d
+sudo docker compose --env-file .env up -d
 
 echo "Waiting for services to be healthy..."
 sleep 30
