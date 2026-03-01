@@ -1,25 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "BeforeInstall: Creating .env file..."
-cat > /home/ubuntu/app/.env << 'ENVEOF'
-GOOGLE_API_KEY=${GOOGLE_API_KEY}
-MONGODB_URI=${MONGODB_URI}
-GEMINI_MODEL=${GEMINI_MODEL}
-OPENAI_API_KEY=${OPENAI_API_KEY}
-LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
-LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
-LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL}
-AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
-AWS_REGION=${AWS_REGION}
-AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
-AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
-OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-OPENROUTER_MODEL=${OPENROUTER_MODEL}
-KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}
-ENVEOF
+echo "BeforeInstall: Creating .env from AWS Parameter Store..."
+aws ssm get-parameter --name '/damo/ai/PROD_ENV' --with-decryption --query 'Parameter.Value' --output text > /home/ubuntu/app/.env
 chmod 600 /home/ubuntu/app/.env
 echo "BeforeInstall: .env file created"
 

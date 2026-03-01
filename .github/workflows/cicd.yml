@@ -15,31 +15,12 @@ env:
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
   ECR_REPO_DEV: dev/ai
   ECR_REPO_PROD: prod/ai
-
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  
   AWS_REGION: ap-northeast-2
-
-  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-  MONGODB_URI: ${{ secrets.MONGODB_URI }}
-  DB_NAME: ${{ secrets.DB_NAME }}
-
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
-  LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
-  LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
 
   DEPLOYMENT_APP: damo-ai
   DEPLOYMENT_GROUP_DEV: dev-damo-ai
   DEPLOYMENT_GROUP_PROD: prod-damo-ai
-
-  GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
-  AWS_ENDPOINT_URL: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ENDPOINT_URL_PROD || secrets.AWS_ENDPOINT_URL_DEV }}
-  AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
-  LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-  OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
-  KAFKA_BOOTSTRAP_SERVERS: ${{ github.ref == 'refs/heads/main' && secrets.KAFKA_BOOTSTRAP_SERVERS_PROD || secrets.KAFKA_BOOTSTRAP_SERVERS_DEV }}
 
 jobs:
   ci:
@@ -58,21 +39,21 @@ jobs:
 
       - name: Run Gateway Tests
         env:
-            GOOGLE_API_KEY: ${{env.GOOGLE_API_KEY}}
-            OPENAI_API_KEY: ${{env.OPENAI_API_KEY}}ㅣ
-            MONGODB_URI: ${{ env.MONGODB_URI}}
-            LANGFUSE_SECRET_KEY: ${{env.LANGFUSE_SECRET_KEY}}
-            LANGFUSE_PUBLIC_KEY: ${{env.LANGFUSE_PUBLIC_KEY}}
-            LANGFUSE_BASE_URL: ${{env.LANGFUSE_BASE_URL}}
-            AWS_ENDPOINT_URL: ${{env.AWS_ENDPOINT_URL}}
-            AWS_REGION: ${{env.AWS_REGION}}
-            AWS_BUCKET_NAME: ${{env.AWS_BUCKET_NAME}}
-            AWS_ACCESS_KEY_ID: ${{env.AWS_ACCESS_KEY_ID}}
-            AWS_SECRET: ${{env.AWS_SECRET_ACCESS_KEY}}
-            LANGSMITH_API_KEY: ${{env.LANGSMITH_API_KEY}}
-            OPENROUTER_API_KEY: ${{env.OPENROUTER_API_KEY}}
-            OPENROUTER_MODEL: ${{env.OPENROUTER_MODEL}}
-            KAFKA_BOOTSTRAP_SERVERS: ${{env.KAFKA_BOOTSTRAP_SERVERS}}
+            GOOGLE_API_KEY: "dummy"
+            OPENAI_API_KEY: "dummy"
+            MONGODB_URI: "mongodb://localhost:27017"
+            LANGFUSE_SECRET_KEY: "dummy"
+            LANGFUSE_PUBLIC_KEY: "dummy"
+            LANGFUSE_BASE_URL: "dummy"
+            AWS_ENDPOINT_URL: "dummy"
+            AWS_REGION: "dummy"
+            AWS_BUCKET_NAME: "dummy"
+            AWS_ACCESS_KEY_ID: "dummy"
+            AWS_SECRET: "dummy"
+            LANGSMITH_API_KEY: "dummy"
+            OPENROUTER_API_KEY: "dummy"
+            OPENROUTER_MODEL: "dummy"
+            KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
         run: |
             export PYTHONPATH=$PYTHONPATH:$(pwd)
             python -m pytest test/gateway/test_gateway.py
@@ -104,7 +85,6 @@ jobs:
             ECR_REPO="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_DEV }}"
           fi
           echo "ECR_REPO=${ECR_REPO}" >> "$GITHUB_ENV"
-          echo "IMAGE=${ECR_REPO}:${SHORT_SHA}" >> "$GITHUB_ENV"
           echo "IMAGE_TAG=${SHORT_SHA}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
@@ -118,7 +98,7 @@ jobs:
           push: true
           platforms: linux/arm64
           tags: |
-            ${{ env.IMAGE }}
+            ${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -146,19 +126,13 @@ jobs:
             sleep 2
           done
           sleep 3
-          for i in {1..10}; do
-            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes \
-              -p ${{ env.PORT }} -i /dev/null \
-              ${{ env.USER }}@${{ env.HOST }} exit 2>/dev/null; then
-              break
-            fi
-            if ping -c 1 -W 2 ${{ env.HOST }} > /dev/null 2>&1; then
-              echo "AI server reachable (attempt $i)"
-              break
-            fi
-            echo "Waiting for AI server route... (attempt $i)"
-            sleep 2
-          done
+
+      - name: Resolve environment
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          ECR_REPO="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_DEV }}"
+          echo "ECR_REPO=${ECR_REPO}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${SHORT_SHA}" >> "$GITHUB_ENV"
 
       - name: Deploy via SSH (pull ECR image and run docker-compose)
         run: |
@@ -168,7 +142,15 @@ jobs:
             -o StrictHostKeyChecking=no \
             -p ${{ env.PORT }} \
             ${{ env.USER }}@${{ env.HOST }} \
-            "set -euo pipefail && aws ecr get-login-password --region ap-northeast-2 | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }} && cd /home/ubuntu && sudo docker compose pull gateway && sudo docker compose up -d gateway"
+            "set -euo pipefail && \
+             export PATH=/usr/local/bin:/usr/bin:/snap/bin:\$PATH && \
+             source ~/.bashrc 2>/dev/null || true && \
+             aws ssm get-parameter --name '/damo/ai/DEV_ENV' --with-decryption --query 'Parameter.Value' --output text > /home/ubuntu/.env && \
+             echo '' >> /home/ubuntu/.env && \
+             echo 'ECR_REPO=${{ env.ECR_REPO }}' >> /home/ubuntu/.env && \
+             echo 'IMAGE_TAG=${{ env.IMAGE_TAG }}' >> /home/ubuntu/.env && \
+             aws ecr get-login-password --region ap-northeast-2 | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }} && \
+             cd /home/ubuntu && sudo docker compose pull gateway && sudo docker compose up -d gateway"
           rm -f /tmp/deploy_key
 
       - name: Teardown WireGuard
@@ -200,77 +182,15 @@ jobs:
           echo "ECR_REGISTRY=${ECR_REGISTRY}" >> "$GITHUB_ENV"
           SHORT_SHA=${GITHUB_SHA::7}
           echo "IMAGE_TAG=${SHORT_SHA}" >> "$GITHUB_ENV"
-          echo "IMAGE=${ECR_REPO}:${SHORT_SHA}" >> "$GITHUB_ENV"
 
       - name: Prepare revision bundle (appspec/scripts + image info)
         run: |
-          mkdir -p scripts
           cat > scripts/image.env <<EOF
-          IMAGE=${IMAGE}
           IMAGE_TAG=${IMAGE_TAG}
           ECR_REPO=${ECR_REPO}
           ECR_REGISTRY=${ECR_REGISTRY}
           EOF
-
-          cat > scripts/before_install.sh <<'SCRIPTEOF'
-          #!/bin/bash
-          set -e
-
-          echo "BeforeInstall: Creating .env file..."
-          cat > /home/ubuntu/app/.env << 'ENVEOF'
-          GOOGLE_API_KEY=__GOOGLE_API_KEY__
-          MONGODB_URI=__MONGODB_URI__
-          GEMINI_MODEL=__GEMINI_MODEL__
-          OPENAI_API_KEY=__OPENAI_API_KEY__
-          LANGFUSE_SECRET_KEY=__LANGFUSE_SECRET_KEY__
-          LANGFUSE_PUBLIC_KEY=__LANGFUSE_PUBLIC_KEY__
-          LANGFUSE_BASE_URL=__LANGFUSE_BASE_URL__
-          AWS_ENDPOINT_URL=__AWS_ENDPOINT_URL__
-          AWS_REGION=__AWS_REGION__
-          AWS_BUCKET_NAME=__AWS_BUCKET_NAME__
-          AWS_ACCESS_KEY_ID=__AWS_ACCESS_KEY_ID__
-          AWS_SECRET_ACCESS_KEY=__AWS_SECRET_ACCESS_KEY__
-          LANGSMITH_API_KEY=__LANGSMITH_API_KEY__
-          OPENROUTER_API_KEY=__OPENROUTER_API_KEY__
-          OPENROUTER_MODEL=__OPENROUTER_MODEL__
-          KAFKA_BOOTSTRAP_SERVERS=__KAFKA_BOOTSTRAP_SERVERS__
-          ENVEOF
-          chmod 600 /home/ubuntu/app/.env
-          echo "BeforeInstall: .env file created"
-
-          echo "BeforeInstall: Stopping existing containers..."
-          if [ -d "/home/ubuntu/app" ]; then
-              cd /home/ubuntu/app
-              sudo docker compose down || true
-              sudo docker system prune -f || true
-
-              echo "BeforeInstall: Creating backup of current app..."
-              if [ -d "/home/ubuntu/app_backup" ]; then
-                  sudo rm -rf /home/ubuntu/app_backup
-              fi
-              sudo cp -r /home/ubuntu/app /home/ubuntu/app_backup
-          else
-              echo "BeforeInstall: No existing app found, skipping..."
-          fi
-          SCRIPTEOF
-
-          sed -i 's|__GOOGLE_API_KEY__|${{ secrets.GOOGLE_API_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__MONGODB_URI__|${{ secrets.MONGODB_URI }}|g' scripts/before_install.sh
-          sed -i 's|__GEMINI_MODEL__|${{ secrets.GEMINI_MODEL }}|g' scripts/before_install.sh
-          sed -i 's|__OPENAI_API_KEY__|${{ secrets.OPENAI_API_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__LANGFUSE_SECRET_KEY__|${{ secrets.LANGFUSE_SECRET_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__LANGFUSE_PUBLIC_KEY__|${{ secrets.LANGFUSE_PUBLIC_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__LANGFUSE_BASE_URL__|${{ secrets.LANGFUSE_BASE_URL }}|g' scripts/before_install.sh
-          sed -i 's|__AWS_ENDPOINT_URL__|${{ secrets.AWS_ENDPOINT_URL }}|g' scripts/before_install.sh
-          sed -i 's|__AWS_REGION__|ap-northeast-2|g' scripts/before_install.sh
-          sed -i 's|__AWS_BUCKET_NAME__|${{ secrets.AWS_BUCKET_NAME }}|g' scripts/before_install.sh
-          sed -i 's|__AWS_ACCESS_KEY_ID__|${{ secrets.AWS_ACCESS_KEY_ID }}|g' scripts/before_install.sh
-          sed -i 's|__AWS_SECRET_ACCESS_KEY__|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__LANGSMITH_API_KEY__|${{ secrets.LANGSMITH_API_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__OPENROUTER_API_KEY__|${{ secrets.OPENROUTER_API_KEY }}|g' scripts/before_install.sh
-          sed -i 's|__OPENROUTER_MODEL__|${{ secrets.OPENROUTER_MODEL }}|g' scripts/before_install.sh
-          sed -i 's|__KAFKA_BOOTSTRAP_SERVERS__|${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}|g' scripts/before_install.sh
-          chmod +x scripts/before_install.sh
+          chmod +x scripts/*.sh
 
           zip -r deployment.zip appspec.yml scripts/ docker-compose.yml
 
