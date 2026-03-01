@@ -1,11 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "BeforeInstall: Creating .env from AWS Parameter Store..."
-aws ssm get-parameter --name '/damo/ai/PROD_ENV' --with-decryption --query 'Parameter.Value' --output text > /home/ubuntu/app/.env
-chmod 600 /home/ubuntu/app/.env
-echo "BeforeInstall: .env file created"
-
 echo "BeforeInstall: Stopping existing containers..."
 if [ -d "/home/ubuntu/app" ]; then
     cd /home/ubuntu/app
@@ -18,5 +13,12 @@ if [ -d "/home/ubuntu/app" ]; then
     fi
     sudo cp -r /home/ubuntu/app /home/ubuntu/app_backup
 else
-    echo "BeforeInstall: No existing app found, skipping..."
+    echo "BeforeInstall: No existing app found, creating directory..."
 fi
+
+mkdir -p /home/ubuntu/app
+
+echo "BeforeInstall: Creating .env from AWS Parameter Store..."
+aws ssm get-parameter --name '/damo/ai/PROD_ENV' --with-decryption --query 'Parameter.Value' --output text > /home/ubuntu/app/.env
+chmod 600 /home/ubuntu/app/.env
+echo "BeforeInstall: .env file created"

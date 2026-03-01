@@ -99,6 +99,7 @@ jobs:
           platforms: linux/arm64
           tags: |
             ${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REPO }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
