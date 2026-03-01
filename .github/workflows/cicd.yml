@@ -15,9 +15,7 @@ env:
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
   ECR_REPO_DEV: dev/ai
   ECR_REPO_PROD: prod/ai
-
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  
   AWS_REGION: ap-northeast-2
 
   DEPLOYMENT_APP: damo-ai
@@ -142,6 +140,13 @@ jobs:
             sleep 2
           done
 
+      - name: Resolve environment
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          ECR_REPO="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO_DEV }}"
+          echo "ECR_REPO=${ECR_REPO}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${SHORT_SHA}" >> "$GITHUB_ENV"
+
       - name: Deploy via SSH (pull ECR image and run docker-compose)
         run: |
           echo "${{ env.KEY }}" > /tmp/deploy_key
@@ -151,6 +156,7 @@ jobs:
             -p ${{ env.PORT }} \
             ${{ env.USER }}@${{ env.HOST }} \
             "set -euo pipefail && \
+             export PATH=/usr/local/bin:\$PATH && \
              aws ssm get-parameter --name '/damo/ai/DEV_ENV' --with-decryption --query 'Parameter.Value' --output text > /home/ubuntu/.env && \
              echo '' >> /home/ubuntu/.env && \
              echo 'ECR_REPO=${{ env.ECR_REPO }}' >> /home/ubuntu/.env && \
