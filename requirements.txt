@@ -1,2 +1,14 @@
-fastapi
-uvicorn[standard]
+pydantic
+pydantic-settings
+motor
+langchain
+langfuse
+langgraph
+langchain-openrouter
+langchain-openai
+langchain-google-genai
+pytest
+pytest-asyncio
+faststream[kafka]
+faststream[cli]
+prometheus-fastapi-instrumentator
